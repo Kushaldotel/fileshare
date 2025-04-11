@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 700px;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        input[type="file"] {
+            display: block;
+            margin: 10px auto;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            color: white;
+        }
+        .upload-btn { background-color: #28a745; }
+        .upload-btn:hover { background-color: #218838; }
+        .edit-btn { background-color: #ffc107; color: black; }
+        .edit-btn:hover { background-color: #e0a800; }
+        .delete-btn { background-color: #dc3545; }
+        .delete-btn:hover { background-color: #c82333; }
+        .download-btn { background-color: #007bff; }
+        .download-btn:hover { background-color: #0056b3; }
+        .copy-btn { background-color: #17a2b8; }
+        .copy-btn:hover { background-color: #138496; }
+        .view-btn { background-color: #6c757d; }
+        .view-btn:hover { background-color: #5a6268; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        th { background-color: #f4f4f4; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>File Management System</h2>
+
+        <!-- File Upload Form -->
+        <form id="uploadForm" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="file" id="fileInput" required>
+            <button type="submit" class="upload-btn">Upload</button>
+        </form>
+
+        <!-- File List -->
+        <h3>Uploaded Files</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Uploaded At</th>
+                    <th>Shareable Link</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="fileList">
+                {% for file in files %}
+                <tr id="fileRow-{{ file.shareable_link }}">
+                    <td>{{ file.id }}</td>
+                    <td>{{ file.uploaded_at }}</td>
+                    <td>{{ file.shareable_link }}</td>
+                    <td>
+                        <button class="download-btn" onclick="downloadFile('{{ file.shareable_link }}')">Download</button>
+                        <button class="edit-btn" onclick="editFile('{{ file.shareable_link }}')">Edit</button>
+                        <button class="delete-btn" onclick="deleteFile('{{ file.shareable_link }}')">Delete</button>
+                        <button class="copy-btn" onclick="copyLink('{{ file.shareable_link }}')">Copy Link</button>
+                        <!-- New View File Button -->
+                        <a href="{{ file.file.url }}" target="_blank">
+                            <button class="view-btn">View File</button>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5">No files found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+
+    <script>
+        function getCSRFToken() {
+            return document.querySelector('[name=csrfmiddlewaretoken]').value;
+        }
+
+        document.getElementById("uploadForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            let formData = new FormData(this);
+
+            fetch("/api/upload/", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-CSRFToken": getCSRFToken()
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("File uploaded successfully!");
+                location.reload();  // Refresh the page to show the new file
+            })
+            .catch(error => console.error("Upload failed:", error));
+        });
+
+        function downloadFile(shareableLink) {
+            window.location.href = `/api/download/${shareableLink}/`;
+        }
+
+        function editFile(shareableLink) {
+            window.location.href = `/file/${shareableLink}/`;
+        }
+
+        function deleteFile(shareableLink) {
+            if (!confirm("Are you sure you want to delete this file?")) return;
+
+            fetch(`/api/delete/${shareableLink}/`, {
+                method: "DELETE",
+                headers: {
+                    "X-CSRFToken": getCSRFToken()
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("File deleted successfully!");
+                document.getElementById(`fileRow-${shareableLink}`).remove();
+            })
+            .catch(error => console.error("Error deleting file:", error));
+        }
+
+        function copyLink(shareableLink) {
+            const url = `127.0.0.1:8000/api/download/${shareableLink}/`;
+            navigator.clipboard.writeText(url)
+                .then(() => {
+                    alert("Download link copied to clipboard!");
+                })
+                .catch(error => {
+                    console.error("Error copying link:", error);
+                    alert("Failed to copy link.");
+                });
+        }
+    </script>
+
+</body>
+</html>
